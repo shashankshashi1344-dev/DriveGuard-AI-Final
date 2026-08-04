@@ -1,23 +1,26 @@
 import cv2
+
 from modules.camera import Camera
+from modules.face_detection import FaceDetector
 
 
 def main():
 
     camera = Camera()
 
-    print("===================================")
-    print("     DriveGuard AI Started")
-    print(" Press Q to Quit")
-    print("===================================")
+    detector = FaceDetector()
+
+    print("DriveGuard AI Started")
+    print("Press Q to Exit")
 
     while True:
 
         frame = camera.read()
 
         if frame is None:
-            print("Camera Error")
             break
+
+        frame, faces = detector.detect(frame)
 
         cv2.putText(
             frame,
@@ -29,12 +32,33 @@ def main():
             2,
         )
 
+        cv2.putText(
+            frame,
+            f"Faces : {faces}",
+            (20, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 255),
+            2,
+        )
+
+        if faces > 0:
+
+            cv2.putText(
+                frame,
+                "Driver Detected",
+                (20, 120),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+            )
+
         cv2.imshow("DriveGuard AI", frame)
 
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(1) & 0xFF
 
         if key == ord("q") or key == ord("Q") or key == 27:
-            print("Closing Camera...")
             break
 
     camera.release()
