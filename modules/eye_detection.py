@@ -12,44 +12,63 @@ class EyeDetector:
             refine_landmarks=True,
         )
 
-        self.LEFT = [33,160,158,133,153,144]
-        self.RIGHT = [362,385,387,263,373,380]
+        self.LEFT = [33, 160, 158, 133, 153, 144]
+        self.RIGHT = [362, 385, 387, 263, 373, 380]
 
-    def distance(self,p1,p2):
+        self.EAR_THRESHOLD = 0.21
+        self.CLOSED_FRAMES = 15
 
+        self.frame_counter = 0
+        self.blink_count = 0
+        self.status = "ALERT"
+
+    def distance(self, p1, p2):
         return math.sqrt(
-            (p1.x-p2.x)**2 +
-            (p1.y-p2.y)**2
+            (p1.x - p2.x) ** 2 +
+            (p1.y - p2.y) ** 2
         )
 
-    def ear(self,eye):
+    def calculate_ear(self, eye):
 
-        A=self.distance(eye[1],eye[5])
-        B=self.distance(eye[2],eye[4])
-        C=self.distance(eye[0],eye[3])
+        A = self.distance(eye[1], eye[5])
+        B = self.distance(eye[2], eye[4])
+        C = self.distance(eye[0], eye[3])
 
-        return (A+B)/(2*C)
+        return (A + B) / (2 * C)
 
-    def detect(self,frame):
+    def detect(self, frame):
 
-        rgb=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        results=self.face_mesh.process(rgb)
+        results = self.face_mesh.process(rgb)
 
-        ear=0
+        ear = 0
 
         if results.multi_face_landmarks:
 
-            face=results.multi_face_landmarks[0]
+            face = results.multi_face_landmarks[0]
 
-            left=[face.landmark[i] for i in self.LEFT]
+            left = [face.landmark[i] for i in self.LEFT]
+            right = [face.landmark[i] for i in self.RIGHT]
 
-            right=[face.landmark[i] for i in self.RIGHT]
+            leftEAR = self.calculate_ear(left)
+            rightEAR = self.calculate_ear(right)
 
-            leftEAR=self.ear(left)
+            ear = (leftEAR + rightEAR) / 2
 
-            rightEAR=self.ear(right)
+            if ear < self.EAR_THRESHOLD:
 
-            ear=(leftEAR+rightEAR)/2
+                self.frame_counter += 1
 
-        return ear
+                if self.frame_counter >= self.CLOSED_FRAMES:
+                    self.status = "DROWSY"
+
+            else:
+
+                if self.frame_counter >= 2:
+                    self.blink_count += 1
+
+                self.frame_counter = 0
+                self.status = "ALERT"
+
+        return ear, self.blink_count, self.status

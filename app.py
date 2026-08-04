@@ -8,9 +8,7 @@ from modules.eye_detection import EyeDetector
 def main():
 
     camera = Camera()
-
     detector = FaceDetector()
-
     eye_detector = EyeDetector()
 
     print("===================================")
@@ -25,13 +23,10 @@ def main():
         if frame is None:
             break
 
-        # Face Detection
         frame, faces = detector.detect(frame)
 
-        # Eye Detection
-        ear = eye_detector.detect(frame)
+        ear, blinks, status = eye_detector.detect(frame)
 
-        # Title
         cv2.putText(
             frame,
             "DriveGuard AI",
@@ -42,7 +37,6 @@ def main():
             2,
         )
 
-        # Face Count
         cv2.putText(
             frame,
             f"Faces : {faces}",
@@ -53,7 +47,6 @@ def main():
             2,
         )
 
-        # Driver Detection
         if faces > 0:
             cv2.putText(
                 frame,
@@ -65,7 +58,6 @@ def main():
                 2,
             )
 
-        # EAR Value
         cv2.putText(
             frame,
             f"EAR : {ear:.3f}",
@@ -73,6 +65,31 @@ def main():
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (0, 255, 255),
+            2,
+        )
+
+        cv2.putText(
+            frame,
+            f"Blinks : {blinks}",
+            (20, 200),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 0),
+            2,
+        )
+
+        color = (0, 255, 0)
+
+        if status == "DROWSY":
+            color = (0, 0, 255)
+
+        cv2.putText(
+            frame,
+            f"Status : {status}",
+            (20, 240),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            color,
             2,
         )
 
