@@ -9,6 +9,7 @@ from modules.head_pose import HeadPoseDetector
 from modules.phone_detection import PhoneDetector
 from modules.fatigue_score import FatigueEngine
 from modules.alarm import Alarm
+from modules.report_generator import ReportGenerator
 
 
 def draw_status(frame, text, y, color):
@@ -33,6 +34,7 @@ def main():
     phone_detector = PhoneDetector()
     fatigue_engine = FatigueEngine()
     alarm = Alarm()
+    report = ReportGenerator()
 
     start_time = time.time()
 
@@ -59,6 +61,15 @@ def main():
             head_direction,
             phone_detected,
         )
+        report.write(
+    faces,
+    eye_status,
+    yawn_status,
+    head_direction,
+    phone_detected,
+    fatigue_score,
+    fatigue_status,
+)
 
         if fatigue_status == "DROWSY":
             alarm.play_alarm()
