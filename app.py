@@ -1,4 +1,5 @@
 import cv2
+import time
 
 from modules.camera import Camera
 from modules.face_detection import FaceDetector
@@ -8,6 +9,18 @@ from modules.head_pose import HeadPoseDetector
 from modules.phone_detection import PhoneDetector
 from modules.fatigue_score import FatigueEngine
 from modules.alarm import Alarm
+
+
+def draw_status(frame, text, y, color):
+    cv2.putText(
+        frame,
+        text,
+        (20, y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.75,
+        color,
+        2,
+    )
 
 
 def main():
@@ -21,10 +34,7 @@ def main():
     fatigue_engine = FatigueEngine()
     alarm = Alarm()
 
-    print("===================================")
-    print("       DriveGuard AI Started")
-    print("        Press Q to Exit")
-    print("===================================")
+    start_time = time.time()
 
     while True:
 
@@ -33,124 +43,91 @@ def main():
         if frame is None:
             break
 
-        # ---------------- Face ----------------
-
         frame, faces = detector.detect(frame)
-
-        # ---------------- Eyes ----------------
 
         ear, blinks, eye_status = eye_detector.detect(frame)
 
-        # ---------------- Yawn ----------------
-
         mar, yawns, yawn_status = yawn_detector.detect(frame)
-
-        # ---------------- Head ----------------
 
         head_direction = head_detector.detect(frame)
 
-        # ---------------- Phone ----------------
-
         frame, phone_detected = phone_detector.detect(frame)
-
-        # ---------------- Fatigue ----------------
 
         fatigue_score, fatigue_status = fatigue_engine.calculate(
             eye_status,
             yawn_status,
             head_direction,
-            phone_detected
+            phone_detected,
         )
-
-        # ---------------- Alarm ----------------
 
         if fatigue_status == "DROWSY":
             alarm.play_alarm()
 
-        # ---------------- HUD ----------------
+        # ---------------- HUD Background ----------------
+
+        cv2.rectangle(frame, (0, 0), (360, frame.shape[0]), (35, 35, 35), -1)
 
         cv2.putText(
             frame,
-            "DriveGuard AI",
+            "DRIVEGUARD AI",
             (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.FONT_HERSHEY_DUPLEX,
             1,
             (0, 255, 255),
             2,
         )
 
-        info = [
+        draw_status(frame, f"Driver        : {'DETECTED' if faces else 'NOT FOUND'}", 90, (255,255,255))
+        draw_status(frame, f"Eye Status    : {eye_status}", 130, (0,255,0) if eye_status=="ALERT" else (0,0,255))
+        draw_status(frame, f"EAR           : {ear:.3f}", 170, (255,255,0))
+        draw_status(frame, f"Blink Count   : {blinks}", 210, (255,255,255))
 
-            f"Faces : {faces}",
+        draw_status(frame, f"Yawning       : {yawn_status}", 250, (0,255,0) if yawn_status=="NO" else (0,0,255))
+        draw_status(frame, f"MAR           : {mar:.3f}", 290, (255,255,0))
+        draw_status(frame, f"Yawn Count    : {yawns}", 330, (255,255,255))
 
-            f"EAR : {ear:.3f}",
+        draw_status(frame, f"Head Pose     : {head_direction}", 370, (255,165,0))
 
-            f"Blinks : {blinks}",
+        draw_status(frame, f"Phone         : {'YES' if phone_detected else 'NO'}", 410,
+                    (0,0,255) if phone_detected else (0,255,0))
 
-            f"Eye Status : {eye_status}",
+        draw_status(frame, f"Fatigue Score : {fatigue_score}%", 450, (0,255,255))
 
-            f"MAR : {mar:.3f}",
+        status_color = (0,255,0)
 
-            f"Yawns : {yawns}",
+        if fatigue_status == "WARNING":
+            status_color = (0,165,255)
 
-            f"Yawning : {yawn_status}",
+        elif fatigue_status == "DROWSY":
+            status_color = (0,0,255)
 
-            f"Head : {head_direction}",
+        draw_status(frame, f"STATUS        : {fatigue_status}", 490, status_color)
 
-            f"Phone : {'YES' if phone_detected else 'NO'}",
+        elapsed = int(time.time() - start_time)
 
-            f"Fatigue : {fatigue_score}%",
+        minutes = elapsed // 60
 
-            f"Status : {fatigue_status}"
+        seconds = elapsed % 60
 
-        ]
-
-        y = 80
-
-        for text in info:
-
-            color = (255, 255, 255)
-
-            if "SAFE" in text:
-                color = (0, 255, 0)
-
-            elif "WARNING" in text:
-                color = (0, 165, 255)
-
-            elif "DROWSY" in text:
-                color = (0, 0, 255)
-
-            cv2.putText(
-                frame,
-                text,
-                (20, y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.75,
-                color,
-                2,
-            )
-
-            y += 35
-
-        # ---------------- Emergency Warning ----------------
+        draw_status(frame, f"Session Time  : {minutes:02}:{seconds:02}", 530, (255,255,255))
 
         if fatigue_status == "DROWSY":
 
             cv2.rectangle(
                 frame,
-                (0, 0),
+                (360, 0),
                 (frame.shape[1], 70),
-                (0, 0, 255),
+                (0,0,255),
                 -1,
             )
 
             cv2.putText(
                 frame,
                 "WAKE UP DRIVER!",
-                (180, 45),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.2,
-                (255, 255, 255),
+                (420,45),
+                cv2.FONT_HERSHEY_DUPLEX,
+                1.1,
+                (255,255,255),
                 3,
             )
 
