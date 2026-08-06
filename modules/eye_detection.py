@@ -1,6 +1,7 @@
 import mediapipe as mp
 import cv2
 import math
+from collections import deque
 
 
 class EyeDetector:
@@ -22,6 +23,9 @@ class EyeDetector:
         self.blink_count = 0
         self.status = "ALERT"
 
+        # Smooth EAR using last 5 values
+        self.ear_history = deque(maxlen=5)
+
     def distance(self, p1, p2):
         return math.sqrt(
             (p1.x - p2.x) ** 2 +
@@ -33,6 +37,9 @@ class EyeDetector:
         A = self.distance(eye[1], eye[5])
         B = self.distance(eye[2], eye[4])
         C = self.distance(eye[0], eye[3])
+
+        if C == 0:
+            return 0
 
         return (A + B) / (2 * C)
 
@@ -56,6 +63,10 @@ class EyeDetector:
 
             ear = (leftEAR + rightEAR) / 2
 
+            # Smooth EAR
+            self.ear_history.append(ear)
+            ear = sum(self.ear_history) / len(self.ear_history)
+
             if ear < self.EAR_THRESHOLD:
 
                 self.frame_counter += 1
@@ -70,5 +81,8 @@ class EyeDetector:
 
                 self.frame_counter = 0
                 self.status = "ALERT"
+
+        else:
+            self.status = "NO FACE"
 
         return ear, self.blink_count, self.status

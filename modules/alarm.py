@@ -1,5 +1,6 @@
 import threading
 import winsound
+import time
 
 
 class Alarm:
@@ -15,15 +16,17 @@ class Alarm:
 
         self.is_playing = True
 
-        def beep():
+        def alarm():
 
-            for _ in range(5):
+            while self.is_playing:
 
-                winsound.Beep(2500, 400)
+                winsound.Beep(2500, 350)
+                time.sleep(0.15)
 
-            self.is_playing = False
-
-        threading.Thread(target=beep, daemon=True).start()
+        threading.Thread(
+            target=alarm,
+            daemon=True
+        ).start()
 
     def stop(self):
 

@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+from collections import deque
 
 
 class HeadPoseDetector:
@@ -10,6 +11,9 @@ class HeadPoseDetector:
             max_num_faces=1,
             refine_landmarks=True
         )
+
+        # Smooth direction using history
+        self.history = deque(maxlen=5)
 
     def detect(self, frame):
 
@@ -36,5 +40,13 @@ class HeadPoseDetector:
 
             elif nose.y > 0.62:
                 direction = "DOWN"
+
+            else:
+                direction = "FORWARD"
+
+        self.history.append(direction)
+
+        # Return the most common direction from the last 5 frames
+        direction = max(set(self.history), key=self.history.count)
 
         return direction

@@ -1,42 +1,73 @@
 class FatigueEngine:
 
     def __init__(self):
+
         self.score = 0
         self.status = "SAFE"
 
-    def calculate(self,
-                  eye_status,
-                  yawn_status,
-                  head_direction,
-                  phone_detected):
+        # Score smoothing
+        self.max_score = 100
+        self.decay = 2
 
-        score = 0
+    def calculate(
+        self,
+        eye_status,
+        yawn_status,
+        head_direction,
+        phone_detected
+    ):
 
+        # ----------------------------
+        # Natural Recovery
+        # ----------------------------
+
+        self.score = max(0, self.score - self.decay)
+
+        # ----------------------------
         # Eyes Closed
+        # ----------------------------
+
         if eye_status == "DROWSY":
-            score += 35
+            self.score += 6
 
+        # ----------------------------
         # Yawning
+        # ----------------------------
+
         if yawn_status == "YES":
-            score += 25
+            self.score += 4
 
+        # ----------------------------
         # Looking Away
+        # ----------------------------
+
         if head_direction != "FORWARD":
-            score += 20
+            self.score += 3
 
+        # ----------------------------
         # Phone Usage
+        # ----------------------------
+
         if phone_detected:
-            score += 20
+            self.score += 5
 
-        self.score = score
+        # ----------------------------
+        # Limit Score
+        # ----------------------------
 
-        if score >= 70:
+        self.score = min(self.score, self.max_score)
+
+        # ----------------------------
+        # Driver Status
+        # ----------------------------
+
+        if self.score >= 75:
             self.status = "DROWSY"
 
-        elif score >= 40:
+        elif self.score >= 40:
             self.status = "WARNING"
 
         else:
             self.status = "SAFE"
 
-        return self.score, self.status
+        return int(self.score), self.status

@@ -1,6 +1,7 @@
 import mediapipe as mp
 import cv2
 import math
+from collections import deque
 
 
 class YawnDetector:
@@ -12,7 +13,7 @@ class YawnDetector:
             refine_landmarks=True
         )
 
-        # Mouth landmarks
+        # Mouth Landmarks
         self.MOUTH = [13, 14, 78, 308]
 
         self.YAWN_THRESHOLD = 0.055
@@ -20,6 +21,9 @@ class YawnDetector:
         self.frame_counter = 0
         self.yawn_count = 0
         self.status = "NO"
+
+        # Smooth MAR
+        self.mar_history = deque(maxlen=5)
 
     def distance(self, p1, p2):
 
@@ -48,7 +52,12 @@ class YawnDetector:
             vertical = self.distance(top, bottom)
             horizontal = self.distance(left, right)
 
-            mar = vertical / horizontal
+            if horizontal != 0:
+                mar = vertical / horizontal
+
+            # Smooth MAR
+            self.mar_history.append(mar)
+            mar = sum(self.mar_history) / len(self.mar_history)
 
             if mar > self.YAWN_THRESHOLD:
 
@@ -64,5 +73,8 @@ class YawnDetector:
 
                 self.frame_counter = 0
                 self.status = "NO"
+
+        else:
+            self.status = "NO FACE"
 
         return mar, self.yawn_count, self.status
