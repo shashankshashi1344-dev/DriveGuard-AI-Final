@@ -1,19 +1,27 @@
+# Virtual Environment
 venv/
+.env/
+
+# Python Cache
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
 
-logs/
-reports/
-
-*.csv
-*.db
-
-.idea/
+# VS Code
 .vscode/
 
-.DS_Store
+# Reports
+reports/*.csv
 
-*.mp4
-*.avi
+# Streamlit Cache
+.streamlit/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary Files
+*.tmp
