@@ -26,7 +26,7 @@ df = pd.read_csv(latest)
 
 st.subheader("Latest Session")
 
-st.tablep(df.tail())
+st.dataframe(df)
 
 col1, col2, col3 = st.columns(3)
 
