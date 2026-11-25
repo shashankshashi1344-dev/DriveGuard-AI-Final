@@ -11,6 +11,7 @@ from modules.phone_detection import PhoneDetector
 from modules.fatigue_score import FatigueEngine
 from modules.alarm import Alarm
 from modules.report_generator import ReportGenerator
+from database.db_manager import DatabaseManager
 
 # ==========================================================
 #                   DRIVEGUARD AI v2.0
@@ -373,9 +374,17 @@ def draw_warning(frame, fatigue_status):
 # Main
 # ==========================================================
 
+# ==========================================================
+# MAIN
+# ==========================================================
+
 def main():
 
     global prev_time, fps
+
+    # ======================================================
+    # INITIALIZE DETECTION MODULES
+    # ======================================================
 
     camera = Camera()
     detector = FaceDetector()
@@ -387,12 +396,48 @@ def main():
     alarm = Alarm()
     report = ReportGenerator()
 
+    # ======================================================
+    # DATABASE INITIALIZATION
+    # ======================================================
+
+    database = DatabaseManager()
+
+    session_id = database.create_session()
+
+    total_frames = 0
+    total_fatigue = 0
+    maximum_fatigue = 0
+    total_alerts = 0
+    phone_events = 0
+
+    previous_fatigue_status = "SAFE"
+    previous_phone_status = False
+
+    # ======================================================
+    # SESSION START
+    # ======================================================
+
     start_time = time.time()
+
+    print("\n" + "=" * 50)
+    print("DRIVEGUARD AI MONITORING STARTED")
+    print("=" * 50)
+    print(f"Database Session ID: {session_id}")
+    print("Press Q to stop monitoring")
+    print("=" * 50)
+
+    # ======================================================
+    # WINDOW INITIALIZATION
+    # ======================================================
 
     cv2.namedWindow(
         "DriveGuard AI",
         cv2.WINDOW_NORMAL
     )
+
+    # ======================================================
+    # MAIN MONITORING LOOP
+    # ======================================================
 
     while True:
 
@@ -402,13 +447,16 @@ def main():
             break
 
         # ------------------------------------------
-        # Resize camera for better UI
+        # RESIZE CAMERA
         # ------------------------------------------
 
-        frame = cv2.resize(frame, (960, 720))
+        frame = cv2.resize(
+            frame,
+            (960, 720)
+        )
 
         # ------------------------------------------
-        # Detection Pipeline
+        # DETECTION PIPELINE
         # ------------------------------------------
 
         frame, faces = detector.detect(frame)
@@ -421,12 +469,20 @@ def main():
 
         frame, phone_detected = phone_detector.detect(frame)
 
+        # ------------------------------------------
+        # FATIGUE CALCULATION
+        # ------------------------------------------
+
         fatigue_score, fatigue_status = fatigue_engine.calculate(
             eye_status,
             yawn_status,
             head_direction,
             phone_detected,
         )
+
+        # ------------------------------------------
+        # CSV REPORT
+        # ------------------------------------------
 
         report.write(
             faces,
@@ -438,26 +494,108 @@ def main():
             fatigue_status,
         )
 
-        if fatigue_status == "DROWSY":
-            alarm.play_alarm()
-        else:
-            alarm.stop()
+        # ==================================================
+        # DATABASE FRAME LOGGING
+        # ==================================================
+
+        database.record_frame(
+            session_id,
+            faces,
+            eye_status,
+            yawn_status,
+            head_direction,
+            phone_detected,
+            fatigue_score,
+            fatigue_status,
+        )
 
         # ------------------------------------------
-        # FPS
+        # SESSION STATISTICS
         # ------------------------------------------
+
+        total_frames += 1
+
+        total_fatigue += fatigue_score
+
+        maximum_fatigue = max(
+            maximum_fatigue,
+            fatigue_score
+        )
+
+        # ==================================================
+        # DROWSINESS EVENT DETECTION
+        # ==================================================
+
+        if (
+            fatigue_status == "DROWSY"
+            and previous_fatigue_status != "DROWSY"
+        ):
+
+            database.record_event(
+                session_id,
+                "DROWSINESS",
+                "HIGH",
+                fatigue_score,
+                "Driver entered DROWSY state"
+            )
+
+            total_alerts += 1
+
+        previous_fatigue_status = fatigue_status
+
+        # ==================================================
+        # PHONE DETECTION EVENT
+        # ==================================================
+
+        if (
+            phone_detected
+            and not previous_phone_status
+        ):
+
+            database.record_event(
+                session_id,
+                "PHONE_DETECTION",
+                "MEDIUM",
+                fatigue_score,
+                "Mobile phone detected during monitoring"
+            )
+
+            phone_events += 1
+
+        previous_phone_status = phone_detected
+
+        # ==================================================
+        # ALARM
+        # ==================================================
+
+        if fatigue_status == "DROWSY":
+
+            alarm.play_alarm()
+
+        else:
+
+            alarm.stop()
+
+        # ==================================================
+        # FPS CALCULATION
+        # ==================================================
 
         current = time.time()
 
-        fps = 1 / (current - prev_time)
+        fps = 1 / max(
+            current - prev_time,
+            0.001
+        )
 
         prev_time = current
 
-        elapsed = int(current - start_time)
+        elapsed = int(
+            current - start_time
+        )
 
-        # ------------------------------------------
-        # Dashboard Canvas
-        # ------------------------------------------
+        # ==================================================
+        # DASHBOARD CANVAS
+        # ==================================================
 
         dashboard = np.full(
             (720, DASHBOARD_WIDTH, 3),
@@ -465,11 +603,20 @@ def main():
             dtype=np.uint8,
         )
 
+        # ------------------------------------------
+        # HEADER
+        # ------------------------------------------
+
         draw_header(
             dashboard,
             fps,
             elapsed,
         )
+
+        # ------------------------------------------
+        # DASHBOARD INFORMATION
+        # ------------------------------------------
+
         draw_dashboard(
             dashboard,
             faces,
@@ -485,14 +632,18 @@ def main():
             fatigue_status,
         )
 
+        # ------------------------------------------
+        # WARNING OVERLAY
+        # ------------------------------------------
+
         draw_warning(
             frame,
             fatigue_status,
         )
 
-        # ------------------------------------------
-        # Combine Dashboard + Camera
-        # ------------------------------------------
+        # ==================================================
+        # COMBINE DASHBOARD AND CAMERA
+        # ==================================================
 
         output = np.hstack(
             (
@@ -501,17 +652,98 @@ def main():
             )
         )
 
+        # ==================================================
+        # DISPLAY
+        # ==================================================
+
         cv2.imshow(
             "DriveGuard AI",
             output,
         )
 
+        # ==================================================
+        # KEYBOARD CONTROL
+        # ==================================================
+
         key = cv2.waitKey(1) & 0xFF
 
-        if key == ord("q") or key == ord("Q") or key == 27:
+        if (
+            key == ord("q")
+            or key == ord("Q")
+            or key == 27
+        ):
+
             break
 
+    # ======================================================
+    # END MONITORING SESSION
+    # ======================================================
+
+    alarm.stop()
+
     camera.release()
+
+    cv2.destroyAllWindows()
+
+    # ======================================================
+    # SESSION SUMMARY CALCULATION
+    # ======================================================
+
+    duration = int(
+        time.time() - start_time
+    )
+
+    average_fatigue = (
+        total_fatigue / total_frames
+        if total_frames > 0
+        else 0
+    )
+
+    final_status = (
+        previous_fatigue_status
+        if total_frames > 0
+        else "UNKNOWN"
+    )
+
+    # ======================================================
+    # SAVE SESSION TO DATABASE
+    # ======================================================
+
+    database.end_session(
+        session_id,
+        duration,
+        total_frames,
+        average_fatigue,
+        maximum_fatigue,
+        total_alerts,
+        phone_events,
+        final_status,
+    )
+
+    # ======================================================
+    # DISPLAY SESSION SUMMARY
+    # ======================================================
+
+    print("\n")
+    print("=" * 50)
+    print("DRIVEGUARD AI SESSION SUMMARY")
+    print("=" * 50)
+
+    print(f"Session ID        : {session_id}")
+    print(f"Duration          : {duration} seconds")
+    print(f"Total Frames      : {total_frames}")
+    print(f"Average Fatigue  : {average_fatigue:.2f}")
+    print(f"Maximum Fatigue  : {maximum_fatigue:.2f}")
+    print(f"Drowsiness Alerts: {total_alerts}")
+    print(f"Phone Events     : {phone_events}")
+    print(f"Final Status     : {final_status}")
+
+    print("=" * 50)
+
+    print("CSV report saved successfully.")
+    print("SQLite session saved successfully.")
+
+    print("=" * 50)
 
 
 if __name__ == "__main__":

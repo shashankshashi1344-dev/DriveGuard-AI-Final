@@ -1,27 +1,10 @@
-# Virtual Environment
 venv/
-.env/
-
-# Python Cache
 __pycache__/
 *.pyc
-*.pyo
-
-# VS Code
-.vscode/
-
-# Reports
-reports/*.csv
-
-# Streamlit Cache
-.streamlit/
-
-# OS Files
+.env
+.streamlit/secrets.toml
+database/*.db
+logs/
+reports/
+experiment_data/
 .DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Temporary Files
-*.tmp
